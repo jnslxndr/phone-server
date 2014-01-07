@@ -2,10 +2,14 @@
   "name": "phone-server",
   "version": "0.1.0",
   "description": "Staalplaat phone for saleaway",
-  "main": "server.js",
+  "main": "lib/server.js",
   "scripts": {
-    "build":        "coffee --bare --compile --output lib src/*.coffee",
-    "prepublish":   "coffee --bare --compile --output lib src/*.coffee"
+    "build":        "coffee --bare --compile --output lib src/*.coffee; echo '#!/usr/bin/env node' | cat - lib/server.js > lib/tmp; mv lib/tmp lib/server.js; chmod +x lib/server.js",
+    "prepublish":   "npm run-script build",
+    "start": "node ./lib/server.js"
+  },
+  "bin" : {
+    "staalophone": "./lib/server.js"
   },
   "author": "jens@lea.io",
   "license": "GPL",
