@@ -1,0 +1,19 @@
+{
+  "name": "phone-server",
+  "version": "0.1.0",
+  "description": "Staalplaat phone for saleaway",
+  "main": "server.js",
+  "scripts": {
+    "build":        "coffee --bare --compile --output lib src/*.coffee",
+    "prepublish":   "coffee --bare --compile --output lib src/*.coffee"
+  },
+  "author": "jens@lea.io",
+  "license": "GPL",
+  "dependencies": {
+    "osc-emitter": "~1.0.0",
+    "node-dtmfin": "~0.1.2"
+  },
+  "devDependencies": {
+    "coffee": "0.0.1"
+  }
+}
