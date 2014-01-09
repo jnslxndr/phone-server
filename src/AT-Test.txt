@@ -1,0 +1,12 @@
+AT
+AT+CSQ?
+AT+CREG?
+
+
+'ATE1\r\r\nOK\r\nAT&V\r\r\nACTIVE PROFILE:\r\nE1 Q0 V1 X4 &C1 &D1 +IFC= 0,0 +FCLASS0\r\nS00:0 S03:13 S04:10 S05:8 S07:60 S08:2 S10:15\r\nSTORED PROFILE 0:\r\nE1 Q0 V1 X4 &C1 &D1 +IFC= 0,0 +FCLASS0\r\nS00:0 S03:13 S04:10 S05:8 S07:60 S08:2 S10:15\r\nSTORED PROFILE 1:\r\nE1 Q0 V1 X4 &C1 &D1 +IFC= 0,0 +FCLASS0\r\nS00:0 S03:13 S04:10 S05:8 S07:60 S08:2 S10:15\r\nOK\r\nAT+CPIN\r\r\n+CME ERROR: 3\r\nAT+CREG=?\r\r\n+CREG: (0-2)\r\n\r\nOK\r\nAT+TEST\r\r\nERROR\r\nAT+CNUM\r\r\n+CNUM: " ","+4917637111481",145,7,4\r\n\r\nOK\r\nAT+CPIN=\r\r\n+CME ERROR: 3\r\n\r\n+CRING: VOICE\r\n\r\n+CLIP: "+4917624053500",145,"",,"",0\r\n\r\n+CRING: VOICE\r\n\r\n+CLIP: "+4917624053500",145,"",,"",0\r\n\r\n+CRING: VOICE\r\n\r\n+CLIP: "+4917624053500",145,"",,"",0\r\n\r\n+CRING: VOICE\r\n\r\n+CLIP: "+4917624053500",145,"",,"",0\r\n\r\nNO CARRIER\r\n'
+
+# at command + responses
+/(.+?)\r\r\n((.|[\r\n])*?(OK|ERROR.*))\r\n/g
+
+# unsolicited result
+/\r\n(.+?)\r\n/g
