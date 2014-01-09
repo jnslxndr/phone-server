@@ -8,42 +8,60 @@ class Phone extends EventEmitter
     @isOpen = false
     @responseBuffer = []
     @baudrate = baudrate || 115200
-    @port = new Serial.SerialPort(device, baudrate: @baudrate)
+
+    @port = new Serial.SerialPort(device, baudrate: @baudrate, false)
+
+  open: () =>
     @port.on 'open', @_onOpen
     @port.on 'close', @_onClose
+    promise = Q.ninvoke((cb) => @port.open(cb))
+    # promise.fail (err) =>
+    #   # console.log "port open failed:\t",err
+    # promise.then () =>
+    #   # console.log "open resolved with: \t",arguments
+    return promise
 
-  open: () ->
-    @port.open()
+  close: =>
+    promise = Q.ninvoke((cb) => @port.close(cb))
+    # promise.fail (err) =>
+    #   # console.log "port close failed:\t",err
+    # promise.then () =>
+    #   # console.log "closed port with: \t",arguments
+    return promise
 
-  _onClose: ->
+  _onError: (err) =>
     @isOpen = false
-    @port.off('data',@_onData)
+    console.log "Serial port failed with: \t",err
+    @port.removeListener('data',@_onData)
+
+  _onClose: =>
+    @isOpen = false
+    @port.removeListener('data',@_onData)
 
   _onOpen: =>
-    console.log "port "+@device+" opened!"
+    # console.log "port "+@device+" opened!"
+    @port.on 'error', @_onError
     @responseBuffer = []
     @isOpen = true
     @port.on('data', @_onData)
+
   _buffer: ''
   _cmd_match: /(.+?)\r\r\n((.|[\r\n])*?(OK|ERROR.*))\r\n/g
   _onData: (data) =>
-    @_buffer += data.toString('ascii')
-    # {_buffer} = @
-    # console.log('>>> buffer:',{_buffer})
-    # console.log('>>> raw:', data)
-    # console.log('>>> tostring:', data.toString())
+    @_buffer += data.toString()
     responses = @_buffer.match @_cmd_match
-    # console.log('>>> responses:', responses)
-    # console.log('>>> requrests:', @responseBuffer)
     if responses?.length > 0
       for response in responses
         [cmd,res] = response.replace(/\r\n$/,'').split(/\r\r\n/)
         if @responseBuffer?[0].request == cmd
           # TODO: ERROR or OK?
-          @responseBuffer.shift().deferred?.resolve(res,cmd)
+          isErr = /ERROR.*?$/.test res
+          request = @responseBuffer.shift()
+          if isErr
+            request.deferred?.reject(res,cmd)
+          else
+            request.deferred?.resolve(res,cmd)
           @emit(cmd,res)
-        # console.log "Response Command ", cmd
-        # console.log "Response Response ", res
         @_buffer = @_buffer.replace response, ''
 
     unless @responseBuffer.length > 0 and @_buffer.indexOf(@responseBuffer?[0].request) >= 0
@@ -54,22 +72,50 @@ class Phone extends EventEmitter
           @emit('unsolicited',cmd,res)
           @_buffer = @_buffer.replace u, ''
       
-  @_pollID: null
   @isAlive: false
-  poll: (stop) =>
-    @ping().delay(2000).then () =>
-      @poll()
+  @_poller: null
+  @_pollID: null
+  poll: (start, forever) =>
+    console.log "poll ... starting? ", (not start? or start is true)
+    @_poller = @_poller || Q.defer()
+    if not start? or start is true
+      # start the interval
+      @_pollID = setInterval (() =>
+        @ping().then(() =>
+          @_poller.notify(true)
+        ).fail(() =>
+          @_poller.notify(false)
+          if not forever and not @isOpen # port not available
+            @_poller.reject()
+            @poll(false)
+        ).finally (()=>
+
+        )
+      ), 2500
+    else
+      # stop the interval
+      clearInterval(@_pollID)
+      @_pollID = null
+      @_poller.resolve(true) if @_poller.isPending()
+      @_poller = null
+
+    return @_poller.promise
 
   ping: () =>
-    @send('')
-      .then( () -> console.log('i am alive!',arguments))
-      .fail( () -> console.log('i am DEAD!',arguments))
+    sendPromise = @send('')
+    sendPromise
+      .then( () ->
+        console.log('i am alive!',arguments)
+      )
+      .fail( () ->
+        console.log('i am DEAD!',arguments)
+      )
+    sendPromise
 
   send: (request) =>
     deferred = Q.defer()
     if @isOpen
       wait = @responseBuffer.length * 100
-      console.log wait
       timeout = wait + 2000
       request = 'AT'+request
       _request = {request, deferred}
@@ -85,7 +131,7 @@ class Phone extends EventEmitter
         @responseBuffer.splice(index,1) if index >= 0
 
     else
-      deferred.promise.thenReject "phone not connected"
+      deferred.reject "phone not connected"
     return deferred.promise
 
 
@@ -96,9 +142,12 @@ phone = new Phone(device)
 phone.on('AT', (response) -> console.log "AT was "+response)
 phone.on('unsolicited', (code, response) ->
   console.log "Got notice for "+code+"\n\twith message:\t"+response)
-setTimeout (() ->
+
+phoneIsOpen = phone.open()
+phoneIsOpen.then () ->
   console.log "ping!"
   phone.ping().then () -> console.log('pong')
+
   phone.send('E1').then(() -> console.log("echo mode set to 1"))
   phone.send('&V').then((r,c) -> console.log(arguments))
   phone.send('+CPIN=?').then((r,c) -> console.log(arguments))
@@ -110,7 +159,15 @@ setTimeout (() ->
   phone.send('+CLTS=1').then((r,c) -> console.log('Requested timestamp: "'+r+'"')) 
   phone.send('+CCLK?').then((r,c) -> console.log('Clock: "'+r+'"')) 
 
-  phone.poll()
-  # setTimeout (()->phone.poll(false)), 60000
-  ), 5000
+  phone.poll().progress((state) ->
+    console.log "polling... ",state
+    # phone.close
+    ).fail (err) ->
+      console.log "polling failed! ",err
+      # try reconnect!
+  # setTimeout (()->phone.poll(false)), 10000
+  
+phoneIsOpen.fail (reason) ->
+  console.error "Could not open connection to phone. reason:\t",reason
 
+process.stdin.resume()
