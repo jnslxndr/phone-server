@@ -1,9 +1,9 @@
-Phone = require('../lib/at-connector').Phone
-console.log Phone
-
+require 'coffee-script'
+Modem = require('../src/at-modem').ATModem
 # just for debug
 device = process.argv[2]
-phone = new Phone(device)
+phone = new Modem(device)
+console.log phone
 
 phone.on('AT', (response) -> console.log "AT was "+response)
 phone.on('unsolicited', (code, response) ->

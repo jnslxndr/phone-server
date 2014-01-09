@@ -1,8 +1,11 @@
-EventEmitter = require('events').EventEmitter
+require 'coffee-script'
+require './mixin'
+
 Q = require('q')
 Serial = require('serialport')
 
-class module.exports.Phone extends EventEmitter
+exports.ATSerialDevice = class ATSerialDevice
+  @mixin require('events').EventEmitter
   @listDevices = Serial.list
   constructor: (@device,baudrate) ->
     @isOpen = false
@@ -72,11 +75,10 @@ class module.exports.Phone extends EventEmitter
           @emit('unsolicited',cmd,res)
           @_buffer = @_buffer.replace u, ''
       
-  @isAlive: false
-  @_poller: null
-  @_pollID: null
+  _poller: null
+  _pollID: null
   poll: (start, forever) =>
-    console.log "poll ... starting? ", (not start? or start is true)
+    # console.log "poll ... starting? ", (not start? or start is true)
     @_poller = @_poller || Q.defer()
     if not start? or start is true
       # start the interval
@@ -103,13 +105,13 @@ class module.exports.Phone extends EventEmitter
 
   ping: () =>
     sendPromise = @send('')
-    sendPromise
-      .then( () ->
-        console.log('i am alive!',arguments)
-      )
-      .fail( () ->
-        console.log('i am DEAD!',arguments)
-      )
+    # sendPromise
+    #   .then( () ->
+    #     console.log('i am alive!',arguments)
+    #   )
+    #   .fail( () ->
+    #     console.log('i am DEAD!',arguments)
+    #   )
     sendPromise
 
   send: (request) =>
