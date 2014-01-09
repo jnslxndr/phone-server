@@ -1,4 +1,5 @@
 EventEmitter = require('events').EventEmitter
+Q = require('q')
 Serial = require('serialport')
 
 class Phone extends EventEmitter
@@ -39,7 +40,7 @@ class Phone extends EventEmitter
         [cmd,res] = response.replace(/\r\n$/,'').split(/\r\r\n/)
         if @responseBuffer?[0].request == cmd
           # TODO: ERROR or OK?
-          @responseBuffer.shift().callback?(res,cmd)
+          @responseBuffer.shift().deferred?.resolve(res,cmd)
           @emit(cmd,res)
         # console.log "Response Command ", cmd
         # console.log "Response Response ", res
@@ -56,45 +57,58 @@ class Phone extends EventEmitter
   @_pollID: null
   @isAlive: false
   poll: (stop) =>
-    clearInterval(@_pollID) if @_pollID and !!!stop
-    @_pollID = setInterval @ping, 2000 unless !!stop or @_pollID
+    @ping().delay(2000).then () =>
+      @poll()
 
   ping: () =>
+    @send('')
+      .then( () -> console.log('i am alive!',arguments))
+      .fail( () -> console.log('i am DEAD!',arguments))
 
-    @send('', () -> console.log('i am alive!') )
-
-  send: (request, callback) =>
+  send: (request) =>
+    deferred = Q.defer()
     if @isOpen
-      queueLength = @responseBuffer.length
+      wait = @responseBuffer.length * 100
+      console.log wait
+      timeout = wait + 2000
       request = 'AT'+request
-      @responseBuffer.push {request, callback}
-      setTimeout (() =>
-        @port.write(request+'\r')
-        ), queueLength*100
+      _request = {request, deferred}
+      request_index = @responseBuffer.push _request
+      Q.delay(wait).done () =>
+        @port.write request+'\r', (err, results) ->
+          deferred.notify(results)
+          if err
+            deferred.reject(new Error(err))
+      deferred.promise = deferred.promise.timeout(timeout,"Phone not available")
+      deferred.promise.finally () =>
+        index = @responseBuffer.indexOf _request
+        @responseBuffer.splice(index,1) if index >= 0
+
     else
-      callback?(null,"phone not connected")
-      "phone not connected"
+      deferred.promise.thenReject "phone not connected"
+    return deferred.promise
 
 
 # just for debug
 device = process.argv[2]
 phone = new Phone(device)
+
 phone.on('AT', (response) -> console.log "AT was "+response)
 phone.on('unsolicited', (code, response) ->
   console.log "Got notice for "+code+"\n\twith message:\t"+response)
 setTimeout (() ->
   console.log "ping!"
-  phone.ping()
-  phone.send('E1', () -> console.log("echo mode set to 1"))
-  phone.send('&V', (r,c) -> console.log(arguments))
-  phone.send('+CPIN=?', (r,c) -> console.log(arguments))
-  phone.send('+EXUNSOL="SQ,",2', (r,c) -> console.log(arguments)) # turn on signal results
-  phone.send('+CREG=?', (r,c) -> console.log(arguments))
-  phone.send('+TEST', (r,c) -> console.log(arguments)) # ERROR
-  phone.send('+CNUM', (r,c) -> console.log(arguments)) # number reponse
-  phone.send('+CPIN=', (r,c) -> console.log(arguments)) # +CME ERROR
-  phone.send('+CLTS=1', (r,c) -> console.log('Requested timestamp: "'+r+'"')) 
-  phone.send('+CCLK?', (r,c) -> console.log('Clock: "'+r+'"')) 
+  phone.ping().then () -> console.log('pong')
+  phone.send('E1').then(() -> console.log("echo mode set to 1"))
+  phone.send('&V').then((r,c) -> console.log(arguments))
+  phone.send('+CPIN=?').then((r,c) -> console.log(arguments))
+  phone.send('+EXUNSOL="SQ,",2').then((r,c) -> console.log(arguments)) # turn on signal results
+  phone.send('+CREG=?').then((r,c) -> console.log(arguments))
+  phone.send('+TEST').then((r,c) -> console.log(arguments)) # ERROR
+  phone.send('+CNUM').then((r,c) -> console.log(arguments)) # number reponse
+  phone.send('+CPIN=').then((r,c) -> console.log(arguments)) # +CME ERROR
+  phone.send('+CLTS=1').then((r,c) -> console.log('Requested timestamp: "'+r+'"')) 
+  phone.send('+CCLK?').then((r,c) -> console.log('Clock: "'+r+'"')) 
 
   phone.poll()
   # setTimeout (()->phone.poll(false)), 60000

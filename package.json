@@ -16,7 +16,8 @@
   "dependencies": {
     "osc-emitter": "~1.0.0",
     "node-dtmfin": "~0.1.2",
-    "serialport": "~1.2.5"
+    "serialport": "~1.2.5",
+    "q": "~1.0.0"
   },
   "devDependencies": {
     "coffee": "0.0.1"
