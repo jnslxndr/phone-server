@@ -4,18 +4,19 @@
   "description": "Staalplaat phone for saleaway",
   "main": "lib/server.js",
   "scripts": {
-    "build":        "coffee --bare --compile --output lib src/*.coffee; echo '#!/usr/bin/env node' | cat - lib/server.js > lib/tmp; mv lib/tmp lib/server.js; chmod +x lib/server.js",
-    "prepublish":   "npm run-script build",
+    "build": "coffee --bare --compile --output lib src/*.coffee; echo '#!/usr/bin/env node' | cat - lib/server.js > lib/tmp; mv lib/tmp lib/server.js; chmod +x lib/server.js",
+    "prepublish": "npm run-script build",
     "start": "node ./lib/server.js"
   },
-  "bin" : {
+  "bin": {
     "staalophone": "./lib/server.js"
   },
   "author": "jens@lea.io",
   "license": "GPL",
   "dependencies": {
     "osc-emitter": "~1.0.0",
-    "node-dtmfin": "~0.1.2"
+    "node-dtmfin": "~0.1.2",
+    "serialport": "~1.2.5"
   },
   "devDependencies": {
     "coffee": "0.0.1"
